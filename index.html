@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ビンゴカード</title>
+    <title>下二桁ビンゴ用カード</title>
 
     <style>
         * {
@@ -20,6 +20,7 @@
 
         h1 {
             margin: 10px 0 20px;
+            font-size: clamp(24px, 7vw, 36px);
         }
 
         .bingo-card {
@@ -53,7 +54,7 @@
 
 <body>
 
-    <h1>ビンゴカード</h1>
+    <h1>下二桁ビンゴ用カード</h1>
 
     <div class="bingo-card" id="bingo-card">
         <!-- JavaScriptでここにカードを生成します -->
@@ -76,14 +77,27 @@
             return numbers;
         }
 
-        // 各列の数字を作成
-        const columns = [
-            getRandomNumbers(1, 20, 5),   // B
-            getRandomNumbers(21, 40, 5),  // I
-            getRandomNumbers(41, 60, 5),  // N
-            getRandomNumbers(61, 80, 5),  // G
-            getRandomNumbers(81, 99, 5)   // O
-        ];
+        // 保存されたカードがあるか確認
+        const savedCard = localStorage.getItem("bingoCard");
+
+        let columns;
+
+        if (savedCard) {
+            // 保存されたカードを使用
+            columns = JSON.parse(savedCard);
+        } else {
+            // 初回アクセス時のみカードを生成
+            columns = [
+                getRandomNumbers(1, 20, 5),   // B
+                getRandomNumbers(21, 40, 5),  // I
+                getRandomNumbers(41, 60, 5),  // N
+                getRandomNumbers(61, 80, 5),  // G
+                getRandomNumbers(81, 99, 5)   // O
+            ];
+
+            // カードを端末に保存
+            localStorage.setItem("bingoCard", JSON.stringify(columns));
+        }
 
         const card = document.getElementById("bingo-card");
 
