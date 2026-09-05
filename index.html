@@ -61,302 +61,477 @@
 
 <body>
 
-<h1>下二桁ビンゴ用カード</h1>
+    <h1>下二桁ビンゴ用カード</h1>
 
-<div class="bingo-card" id="bingo-card"></div>
+    <div class="bingo-card" id="bingo-card"></div>
 
-<div class="status">
-    <p>リーチ：<strong id="reach-count">0</strong></p>
-    <p>ビンゴ：<strong id="bingo-count">0</strong></p>
-    <p class="bingo-time" id="bingo-time"></p>
-</div>
+    <div class="status">
+        <p>リーチ：<strong id="reach-count">0</strong></p>
+        <p>ビンゴ：<strong id="bingo-count">0</strong></p>
+        <p class="bingo-time" id="bingo-time">
+            ビンゴ達成時刻：---
+        </p>
+    </div>
 
-<script>
-    // -----------------------------
-    // ビンゴカードの生成
-    // -----------------------------
 
-    function getRandomNumbers(min, max, count) {
-        const numbers = [];
+    <script>
 
-        while (numbers.length < count) {
-            const number =
-                Math.floor(Math.random() * (max - min + 1)) + min;
+        // =========================================
+        // ビンゴカードの生成
+        // =========================================
 
-            if (!numbers.includes(number)) {
-                numbers.push(number);
+        function getRandomNumbers(min, max, count) {
+
+            const numbers = [];
+
+            while (numbers.length < count) {
+
+                const number =
+                    Math.floor(
+                        Math.random() * (max - min + 1)
+                    ) + min;
+
+                if (!numbers.includes(number)) {
+                    numbers.push(number);
+                }
             }
+
+            return numbers;
         }
 
-        return numbers;
-    }
 
-    // 既にカードが保存されていれば、それを使用
-    const savedCard = localStorage.getItem("bingoCard");
+        // -----------------------------------------
+        // 保存済みのカードがあるか確認
+        // -----------------------------------------
 
-    let columns;
+        const savedCard =
+            localStorage.getItem("bingoCard");
 
-    if (savedCard) {
-        columns = JSON.parse(savedCard);
-    } else {
-        columns = [
-            getRandomNumbers(1, 20, 5),   // B
-            getRandomNumbers(21, 40, 5),  // I
-            getRandomNumbers(41, 60, 5),  // N
-            getRandomNumbers(61, 80, 5),  // G
-            getRandomNumbers(81, 99, 5)   // O
-        ];
+        let columns;
 
-        localStorage.setItem(
-            "bingoCard",
-            JSON.stringify(columns)
+
+        if (savedCard) {
+
+            // 保存済みのカードを使用
+            columns = JSON.parse(savedCard);
+
+        } else {
+
+            // 新しいカードを生成
+            columns = [
+
+                // B：1～20
+                getRandomNumbers(1, 20, 5),
+
+                // I：21～40
+                getRandomNumbers(21, 40, 5),
+
+                // N：41～60
+                getRandomNumbers(41, 60, 5),
+
+                // G：61～80
+                getRandomNumbers(61, 80, 5),
+
+                // O：81～99
+                getRandomNumbers(81, 99, 5)
+
+            ];
+
+
+            // カードを保存
+            localStorage.setItem(
+                "bingoCard",
+                JSON.stringify(columns)
+            );
+        }
+
+
+        // =========================================
+        // 開いたマスの読み込み
+        // =========================================
+
+        let opened = JSON.parse(
+            localStorage.getItem("bingoOpened") || "[]"
         );
-    }
 
 
-    // -----------------------------
-    // 開いたマスの読み込み
-    // -----------------------------
+        // =========================================
+        // ビンゴ達成時刻
+        // =========================================
 
-    let opened = JSON.parse(
-        localStorage.getItem("bingoOpened") || "[]"
-    );
+        /*
+         * ビンゴ達成時刻は localStorage に保存する。
+         *
+         * bingoTimeV2 が存在していれば、
+         * ページを再読み込みしてもその時刻を使用する。
+         */
 
-
-    // -----------------------------
-    // ビンゴ達成時間
-    // -----------------------------
-
-    // V2用のキーを使用
-    // （以前のテストで保存された時刻と混ざらないようにする）
-    let bingoTime = localStorage.getItem("bingoTimeV2");
+        let bingoTime =
+            localStorage.getItem("bingoTimeV2");
 
 
-    // ページを開いた時点でのビンゴ数を記録
-    // ※ここでは時刻を記録しない
-    let previousBingoCount = 0;
+        /*
+         * ページを開いた時点でのビンゴ数。
+         *
+         * 初期値は0。
+         *
+         * 初回の updateStatus() で現在のビンゴ数を取得し、
+         * その後のクリックで0→1を検出する。
+         */
+
+        let previousBingoCount = 0;
 
 
-    // -----------------------------
-    // ビンゴカードを表示
-    // -----------------------------
+        // =========================================
+        // ビンゴカードを画面に表示
+        // =========================================
 
-    const cardElement = document.getElementById("bingo-card");
+        const cardElement =
+            document.getElementById("bingo-card");
 
-    for (let row = 0; row < 5; row++) {
-        for (let col = 0; col < 5; col++) {
 
-            const index = row * 5 + col;
+        for (let row = 0; row < 5; row++) {
 
-            const cell = document.createElement("div");
-            cell.classList.add("cell");
+            for (let col = 0; col < 5; col++) {
 
-            const number = columns[col][row];
+                // マスの番号
+                const index = row * 5 + col;
 
-            // 2桁表示
-            cell.textContent =
-                String(number).padStart(2, "0");
+                // マスを作成
+                const cell =
+                    document.createElement("div");
 
-            // 既に開いているマス
-            if (opened.includes(index)) {
-                cell.classList.add("opened");
-            }
+                cell.classList.add("cell");
 
-            // マスをタップ
-            cell.addEventListener("click", function () {
+
+                // カードの数字を取得
+                const number =
+                    columns[col][row];
+
+
+                // 01～99の2桁表示
+                cell.textContent =
+                    String(number).padStart(2, "0");
+
+
+                // ---------------------------------
+                // 保存済みの開いているマス
+                // ---------------------------------
 
                 if (opened.includes(index)) {
-
-                    // 開いている → 閉じる
-                    opened = opened.filter(
-                        i => i !== index
-                    );
-
-                    cell.classList.remove("opened");
-
-                } else {
-
-                    // 閉じている → 開く
-                    opened.push(index);
 
                     cell.classList.add("opened");
                 }
 
 
-                // 状態を保存
-                localStorage.setItem(
-                    "bingoOpened",
-                    JSON.stringify(opened)
+                // ---------------------------------
+                // マスをタップしたとき
+                // ---------------------------------
+
+                cell.addEventListener(
+                    "click",
+                    function () {
+
+                        // 既に開いている場合
+                        if (opened.includes(index)) {
+
+                            // 閉じる
+                            opened =
+                                opened.filter(
+                                    i => i !== index
+                                );
+
+                            cell.classList.remove(
+                                "opened"
+                            );
+
+                        }
+
+                        // 閉じている場合
+                        else {
+
+                            // 開く
+                            opened.push(index);
+
+                            cell.classList.add(
+                                "opened"
+                            );
+                        }
+
+
+                        // ---------------------------------
+                        // 開いたマスを保存
+                        // ---------------------------------
+
+                        localStorage.setItem(
+                            "bingoOpened",
+                            JSON.stringify(opened)
+                        );
+
+
+                        // ---------------------------------
+                        // リーチ・ビンゴ判定
+                        // ---------------------------------
+
+                        updateStatus();
+
+                    }
                 );
 
 
-                // 判定を更新
-                updateStatus();
-            });
-
-            cardElement.appendChild(cell);
-        }
-    }
-
-
-    // -----------------------------
-    // リーチ・ビンゴ判定
-    // -----------------------------
-
-    function updateStatus() {
-
-        const lines = [];
-
-        // 横5本
-        for (let row = 0; row < 5; row++) {
-
-            const line = [];
-
-            for (let col = 0; col < 5; col++) {
-                line.push(row * 5 + col);
+                // カードに追加
+                cardElement.appendChild(cell);
             }
-
-            lines.push(line);
         }
 
 
-        // 縦5本
-        for (let col = 0; col < 5; col++) {
+        // =========================================
+        // リーチ・ビンゴ判定
+        // =========================================
 
-            const line = [];
+        function updateStatus() {
+
+
+            // -----------------------------------------
+            // 判定する12本のラインを作成
+            // -----------------------------------------
+
+            const lines = [];
+
+
+            // -----------------------------------------
+            // 横5本
+            // -----------------------------------------
 
             for (let row = 0; row < 5; row++) {
-                line.push(row * 5 + col);
-            }
 
-            lines.push(line);
-        }
+                const line = [];
 
+                for (let col = 0; col < 5; col++) {
 
-        // 左上 → 右下
-        lines.push([
-            0, 6, 12, 18, 24
-        ]);
+                    line.push(
+                        row * 5 + col
+                    );
+                }
 
-
-        // 右上 → 左下
-        lines.push([
-            4, 8, 12, 16, 20
-        ]);
-
-
-        // -----------------------------
-        // 各ラインを判定
-        // -----------------------------
-
-        let reachCount = 0;
-        let bingoCount = 0;
-
-        for (const line of lines) {
-
-            const openedCount =
-                line.filter(
-                    index => opened.includes(index)
-                ).length;
-
-
-            // 4マスだけ開いている → リーチ
-            if (openedCount === 4) {
-                reachCount++;
+                lines.push(line);
             }
 
 
-            // 5マスすべて開いている → ビンゴ
-            if (openedCount === 5) {
-                bingoCount++;
+            // -----------------------------------------
+            // 縦5本
+            // -----------------------------------------
+
+            for (let col = 0; col < 5; col++) {
+
+                const line = [];
+
+                for (let row = 0; row < 5; row++) {
+
+                    line.push(
+                        row * 5 + col
+                    );
+                }
+
+                lines.push(line);
+            }
+
+
+            // -----------------------------------------
+            // 左上 → 右下
+            // -----------------------------------------
+
+            lines.push([
+                0,
+                6,
+                12,
+                18,
+                24
+            ]);
+
+
+            // -----------------------------------------
+            // 右上 → 左下
+            // -----------------------------------------
+
+            lines.push([
+                4,
+                8,
+                12,
+                16,
+                20
+            ]);
+
+
+            // =========================================
+            // 各ラインを判定
+            // =========================================
+
+            let reachCount = 0;
+            let bingoCount = 0;
+
+
+            for (const line of lines) {
+
+                // そのラインで開いているマスの数
+                const openedCount =
+                    line.filter(
+                        index => opened.includes(index)
+                    ).length;
+
+
+                // -------------------------------------
+                // 4マス開いている
+                // → リーチ
+                // -------------------------------------
+
+                if (openedCount === 4) {
+
+                    reachCount++;
+                }
+
+
+                // -------------------------------------
+                // 5マスすべて開いている
+                // → ビンゴ
+                // -------------------------------------
+
+                if (openedCount === 5) {
+
+                    bingoCount++;
+                }
+            }
+
+
+            // =========================================
+            // ビンゴ達成時刻
+            // =========================================
+
+            /*
+             * ビンゴ数が0の場合
+             *
+             * → 達成時刻を消去
+             */
+
+            if (bingoCount === 0) {
+
+                bingoTime = null;
+
+                localStorage.removeItem(
+                    "bingoTimeV2"
+                );
+            }
+
+
+            /*
+             * ビンゴ数が
+             *
+             * 0 → 1
+             *
+             * になった場合
+             *
+             * → 現在時刻を記録
+             */
+
+            else if (
+                previousBingoCount === 0 &&
+                bingoCount > 0
+            ) {
+
+                bingoTime =
+                    new Date().toISOString();
+
+                localStorage.setItem(
+                    "bingoTimeV2",
+                    bingoTime
+                );
+            }
+
+
+            /*
+             * 1 → 2
+             * 2 → 3
+             * 3 → 4
+             * ...
+             *
+             * の場合は何もしない。
+             *
+             * 最初に記録された時刻を維持する。
+             */
+
+
+            // 現在のビンゴ数を保存
+            // 次回の0→1判定に使用
+            previousBingoCount =
+                bingoCount;
+
+
+            // =========================================
+            // 画面に結果を表示
+            // =========================================
+
+            document.getElementById(
+                "reach-count"
+            ).textContent = reachCount;
+
+
+            document.getElementById(
+                "bingo-count"
+            ).textContent = bingoCount;
+
+
+            // -----------------------------------------
+            // ビンゴ達成時刻
+            // -----------------------------------------
+
+            const timeElement =
+                document.getElementById(
+                    "bingo-time"
+                );
+
+
+            if (bingoTime) {
+
+                const date =
+                    new Date(bingoTime);
+
+
+                const hours =
+                    String(
+                        date.getHours()
+                    ).padStart(2, "0");
+
+
+                const minutes =
+                    String(
+                        date.getMinutes()
+                    ).padStart(2, "0");
+
+
+                const seconds =
+                    String(
+                        date.getSeconds()
+                    ).padStart(2, "0");
+
+
+                timeElement.textContent =
+                    `ビンゴ達成時刻：${hours}:${minutes}:${seconds}`;
+
+            } else {
+
+                timeElement.textContent =
+                    "ビンゴ達成時刻：---";
             }
         }
 
 
-        // -----------------------------
-        // ビンゴ達成時間
-        // -----------------------------
+        // =========================================
+        // 初期表示
+        // =========================================
 
-        /*
-         * 「ビンゴ数 0 → 1」になった瞬間だけ記録する。
-         *
-         * その後、
-         * 1 → 2
-         * 2 → 3
-         * ...
-         * となっても時刻は変更しない。
-         *
-         * また、一度記録された時刻は
-         * マスを閉じてビンゴ数が0になっても消さない。
-         */
+        updateStatus();
 
-        if (
-            previousBingoCount === 0 &&
-            bingoCount > 0 &&
-            !bingoTime
-        ) {
-            bingoTime = new Date();
-
-            localStorage.setItem(
-                "bingoTimeV2",
-                bingoTime.toISOString()
-            );
-        }
-
-
-        // 現在のビンゴ数を次回判定用に保存
-        previousBingoCount = bingoCount;
-
-
-        // -----------------------------
-        // 画面更新
-        // -----------------------------
-
-        document.getElementById("reach-count")
-            .textContent = reachCount;
-
-        document.getElementById("bingo-count")
-            .textContent = bingoCount;
-
-
-        // ビンゴ達成時間
-        const timeElement =
-            document.getElementById("bingo-time");
-
-        if (bingoTime) {
-
-            const date = new Date(bingoTime);
-
-            const hours =
-                String(date.getHours()).padStart(2, "0");
-
-            const minutes =
-                String(date.getMinutes()).padStart(2, "0");
-
-            const seconds =
-                String(date.getSeconds()).padStart(2, "0");
-
-            timeElement.textContent =
-                `ビンゴ達成時刻：${hours}:${minutes}:${seconds}`;
-
-        } else {
-
-            timeElement.textContent =
-                "ビンゴ達成時刻：---";
-        }
-    }
-
-
-    // -----------------------------
-    // 初期表示
-    // -----------------------------
-
-    // 現在のビンゴ数を取得するために一度実行
-    // この時点では previousBingoCount が0なので、
-    // 既にビンゴ状態で読み込まれても時刻は記録されない。
-    updateStatus();
-
-</script>
+    </script>
 
 </body>
 </html>
